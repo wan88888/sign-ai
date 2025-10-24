@@ -1,0 +1,13 @@
+{
+  "buildCommand": "pnpm vite build || npx vite build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "installCommand": "pnpm install || npm install",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+
