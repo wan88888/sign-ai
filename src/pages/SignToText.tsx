@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Video, Volume2, Upload, VideoIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { textToSpeech } from '@/services/signLanguageApi';
 
 export default function SignToText() {
   const [videoSource, setVideoSource] = useState<string | null>(null);
@@ -206,12 +205,16 @@ export default function SignToText() {
       setRecognizedText(recognizedTextResult);
       toast.success('手语识别成功！');
       
-      // 自动生成语音
+      // 使用浏览器原生 Speech Synthesis API 生成语音
       try {
-        const audioBlob = await textToSpeech(recognizedTextResult);
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
-        toast.success('语音合成成功！');
+        // 检查浏览器是否支持语音合成
+        if ('speechSynthesis' in window) {
+          // 设置一个标记，表示语音已准备好
+          setAudioUrl('ready');
+          toast.success('语音合成成功！点击播放按钮可以听到语音');
+        } else {
+          toast.warning('您的浏览器不支持语音合成功能');
+        }
       } catch (error) {
         console.error('语音合成失败:', error);
         toast.error('语音合成失败');
@@ -222,13 +225,44 @@ export default function SignToText() {
   };
 
   const handlePlayAudio = () => {
-    if (audioUrl) {
-      const audio = new Audio(audioUrl);
-      audio.play();
+    if (audioUrl && recognizedText) {
+      // 使用浏览器原生 Speech Synthesis API 播放语音
+      if ('speechSynthesis' in window) {
+        // 停止当前正在播放的语音
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(recognizedText);
+        utterance.lang = 'zh-CN'; // 设置为中文
+        utterance.rate = 0.9; // 语速（0.1 到 10，默认 1）
+        utterance.pitch = 1; // 音调（0 到 2，默认 1）
+        utterance.volume = 1; // 音量（0 到 1，默认 1）
+        
+        utterance.onstart = () => {
+          toast.info('开始播放语音...');
+        };
+        
+        utterance.onend = () => {
+          console.log('语音播放完成');
+        };
+        
+        utterance.onerror = (event) => {
+          console.error('语音播放错误:', event);
+          toast.error('语音播放失败');
+        };
+        
+        window.speechSynthesis.speak(utterance);
+      } else {
+        toast.error('您的浏览器不支持语音合成功能');
+      }
     }
   };
 
   const handleReset = () => {
+    // 停止当前正在播放的语音
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    
     setVideoSource(null);
     setVideoFileName('');
     setRecognizedText('');
@@ -396,14 +430,15 @@ export default function SignToText() {
                   <CardTitle className="text-lg text-amber-800">💡 功能说明</CardTitle>
                 </CardHeader>
                 <CardContent className="text-gray-700 space-y-2">
-                  <p>✅ 已实现：基于文件名的Mock识别演示</p>
+                  <p>✅ 已实现：Mock识别演示 + 浏览器原生语音合成</p>
                   <div className="text-sm text-gray-600 space-y-1">
                     <p>使用方法：</p>
                     <p className="pl-4">1. 点击"开始"按钮</p>
                     <p className="pl-4">2. 选择"录像"或"上传视频"</p>
                     <p className="pl-4">3. 完成后点击"开始识别"</p>
-                    <p className="pl-4">4. 系统根据文件名识别并生成文字和语音</p>
-                    <p className="pl-4">5. 点击"播放语音"播报识别结果</p>
+                    <p className="pl-4">4. 系统根据文件名识别并生成文字</p>
+                    <p className="pl-4">5. 自动使用浏览器原生 TTS 合成语音</p>
+                    <p className="pl-4">6. 点击"播放语音"播报识别结果</p>
                     
                     <p className="mt-2 font-medium">支持的视频文件：</p>
                     <p className="pl-4">hello.mp4 → 你好</p>
